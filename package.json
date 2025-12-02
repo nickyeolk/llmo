@@ -1,0 +1,8 @@
+{
+  "name": "llmo-app",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "wrangler": "^3.109.0"
+  }
+}
