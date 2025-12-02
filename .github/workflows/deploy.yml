@@ -3,7 +3,7 @@ name: Deploy to Cloudflare
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   deploy:
@@ -13,9 +13,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # The 'command' defaults to 'deploy', which works for Python workers too
+          # This forces the action to use the version we just installed
+          wranglerVersion: "latest"
