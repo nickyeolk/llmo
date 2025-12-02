@@ -1,5 +1,7 @@
-from js import Response, fetch, JSON
-from workers import WorkerEntrypoint
+# from js import Response, fetch, JSON
+from js import fetch, JSON, Headers
+# from workers import WorkerEntrypoint
+from workers import WorkerEntrypoint, Response
 import json
 
 class MyWorker(WorkerEntrypoint):
