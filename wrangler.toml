@@ -1,0 +1,19 @@
+name = "llmo-ranker"
+main = "src/entry.py"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["python_workers"]
+
+# This creates the record llmo.wildnode.io automatically
+[[routes]]
+pattern = "llmo.wildnode.io"
+custom_domain = true
+
+# Serves your HTML files from the 'public' folder
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+# Variable placeholders (secrets are set in dashboard/GitHub)
+[vars]
+# OPENROUTER_API_KEY = "set-via-secret"
