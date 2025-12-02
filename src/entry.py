@@ -4,7 +4,7 @@ from js import fetch, JSON, Headers
 from workers import WorkerEntrypoint, Response
 import json
 
-class MyWorker(WorkerEntrypoint):
+class Default(WorkerEntrypoint):
     async def fetch(self, request):
         url = request.url
         
