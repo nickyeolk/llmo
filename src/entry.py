@@ -1,8 +1,10 @@
-from js import Response, fetch, Object
-from pyodide.ffi import to_js
+from js import Response, fetch, JSON
 import json
 
 async def on_fetch(request, env):
+    """
+    Functional Entry Point.
+    """
     try:
         url = request.url
 
@@ -14,30 +16,34 @@ async def on_fetch(request, env):
         return await env.ASSETS.fetch(request)
 
     except Exception as e:
+        # Return JSON error to prevent frontend crash
         return Response.new(json.dumps({"error": f"Critical Error: {str(e)}"}), status=500, headers={
             "Content-Type": "application/json"
         })
 
 async def handle_ranking(request, env):
     try:
-        # Safe JSON parsing
-        req_text = await request.text()
-        req_json = json.loads(req_text)
+        # Robust Request Parsing
+        try:
+            req_text = await request.text()
+            req_json = json.loads(req_text)
+        except:
+            return Response.new(json.dumps({"error": "Invalid JSON body"}), status=400)
         
         company = req_json.get("company", "")
         industry = req_json.get("industry", "")
         
         if not company or not industry:
-            return Response.new(json.dumps({"error": "Missing company or industry"}), status=400, headers={"Content-Type": "application/json"})
+            return Response.new(json.dumps({"error": "Missing company or industry"}), status=400)
 
+        # Models to check
         models = [
             "openai/gpt-4o",
             "anthropic/claude-3.5-sonnet", 
             "meta-llama/llama-3-70b-instruct"
         ]
         
-        # Reduced prompt to save tokens/latency
-        prompt = f"List the top 5 companies in the {industry} industry. Return ONLY a comma-separated list."
+        prompt = f"List the top 5 most popular companies in the {industry} industry. Return ONLY a comma-separated list."
 
         results = {}
 
@@ -45,40 +51,38 @@ async def handle_ranking(request, env):
             try:
                 api_url = "https://openrouter.ai/api/v1/chat/completions"
                 
-                # Check API Key
                 api_key = env.OPENROUTER_API_KEY
                 if not api_key:
                     results[model] = "Error: Key Missing"
                     continue
 
-                payload = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}]
-                }
-
-                # --- THE FIX IS HERE ---
-                # We create a Python dict and convert it to a JS Object using to_js
-                # This ensures 'headers' and 'body' are read correctly by the JS runtime.
-                options = to_js({
+                # --- THE ROBUST FIX ---
+                # 1. Create Python Dict
+                py_options = {
                     "method": "POST",
                     "headers": {
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json"
                     },
-                    "body": json.dumps(payload)
-                }, dict_converter=Object.fromEntries)
-
-                # Call fetch with the positional argument 'options'
-                resp = await fetch(api_url, options)
-                # -----------------------
-
-                resp_text = await resp.text()
+                    "body": json.dumps({
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}]
+                    })
+                }
                 
-                # Handle non-200 responses
+                # 2. Convert to JS Object using the "JSON Hack"
+                # This bypasses the need for pyodide.ffi imports
+                js_options = JSON.parse(json.dumps(py_options))
+                
+                # 3. Fetch
+                resp = await fetch(api_url, js_options)
+                # ----------------------
+
                 if resp.status != 200:
                     results[model] = f"API Error {resp.status}"
                     continue
 
+                resp_text = await resp.text()
                 data = json.loads(resp_text)
                 
                 if "error" in data:
@@ -87,7 +91,6 @@ async def handle_ranking(request, env):
 
                 content = data['choices'][0]['message']['content']
                 
-                # Ranking Logic
                 rank_list = [x.strip().lower() for x in content.split(",")]
                 try:
                     rank = rank_list.index(company.lower()) + 1
