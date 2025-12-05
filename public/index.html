@@ -35,7 +35,7 @@
         <div id="results"></div>
     </div>
 
-    <script>
+<script>
         async function getRankings() {
             const btn = document.getElementById('btn');
             const resDiv = document.getElementById('results');
@@ -46,10 +46,9 @@
 
             btn.innerText = "Analyzing...";
             btn.disabled = true;
-            resDiv.innerHTML = "";
+            resDiv.innerHTML = "Loading... (This may take 5-10 seconds)";
 
             try {
-                // Call the Python backend on the same domain
                 const response = await fetch('/api/rank', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -57,18 +56,29 @@
                 });
                 
                 const data = await response.json();
+
+                // HANDLE ERRORS: If the backend sent a JSON error, show it
+                if (data.error) {
+                    resDiv.innerHTML = `<p style="color:red; font-weight:bold;">${data.error}</p>`;
+                    return;
+                }
                 
                 let html = "";
                 for (const [model, rank] of Object.entries(data)) {
+                    // Check for per-model errors
+                    const isError = rank.toString().includes("Error");
+                    const color = isError ? "red" : "#0369a1";
+                    const bg = isError ? "#fee2e2" : "#e0f2fe";
+
                     html += `
                         <div class="result-row">
-                            <span class="model-name">${model.split('/')[1]}</span>
-                            <span class="rank-badge">${rank}</span>
+                            <span class="model-name">${model.split('/')[1] || model}</span>
+                            <span class="rank-badge" style="color: ${color}; background: ${bg}">${rank}</span>
                         </div>`;
                 }
                 resDiv.innerHTML = html;
             } catch (e) {
-                resDiv.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
+                resDiv.innerHTML = `<p style="color:red">Frontend Error: ${e.message}</p>`;
             } finally {
                 btn.innerText = "Analyze";
                 btn.disabled = false;
