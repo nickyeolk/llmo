@@ -1,10 +1,8 @@
-from js import Response, fetch
+from js import Response, fetch, Object
+from pyodide.ffi import to_js
 import json
 
 async def on_fetch(request, env):
-    """
-    Functional Entry Point.
-    """
     try:
         url = request.url
 
@@ -16,15 +14,13 @@ async def on_fetch(request, env):
         return await env.ASSETS.fetch(request)
 
     except Exception as e:
-        # CRITICAL FIX: Return JSON so the frontend can display the error
         return Response.new(json.dumps({"error": f"Critical Error: {str(e)}"}), status=500, headers={
             "Content-Type": "application/json"
         })
 
 async def handle_ranking(request, env):
     try:
-        # Parse the incoming JSON body
-        # (We use await request.text() + json.loads for maximum safety in the beta environment)
+        # Safe JSON parsing
         req_text = await request.text()
         req_json = json.loads(req_text)
         
@@ -34,40 +30,55 @@ async def handle_ranking(request, env):
         if not company or not industry:
             return Response.new(json.dumps({"error": "Missing company or industry"}), status=400, headers={"Content-Type": "application/json"})
 
-        # Models to poll
         models = [
             "openai/gpt-4o",
             "anthropic/claude-3.5-sonnet", 
             "meta-llama/llama-3-70b-instruct"
         ]
         
-        prompt = f"List the top 10 most popular companies in the {industry} industry. Return ONLY a comma-separated list of names. Do not number them."
+        # Reduced prompt to save tokens/latency
+        prompt = f"List the top 5 companies in the {industry} industry. Return ONLY a comma-separated list."
 
         results = {}
 
         for model in models:
             try:
-                # API Call to OpenRouter
                 api_url = "https://openrouter.ai/api/v1/chat/completions"
+                
+                # Check API Key
+                api_key = env.OPENROUTER_API_KEY
+                if not api_key:
+                    results[model] = "Error: Key Missing"
+                    continue
+
                 payload = {
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}]
                 }
+
+                # --- THE FIX IS HERE ---
+                # We create a Python dict and convert it to a JS Object using to_js
+                # This ensures 'headers' and 'body' are read correctly by the JS runtime.
+                options = to_js({
+                    "method": "POST",
+                    "headers": {
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    "body": json.dumps(payload)
+                }, dict_converter=Object.fromEntries)
+
+                # Call fetch with the positional argument 'options'
+                resp = await fetch(api_url, options)
+                # -----------------------
+
+                resp_text = await resp.text()
                 
-                # Check if API Key exists
-                # Note: In functional syntax, env is a JS Object. We access keys with dot notation.
-                api_key = env.OPENROUTER_API_KEY
-                if not api_key:
-                    results[model] = "Error: Missing API Key in Dashboard"
+                # Handle non-200 responses
+                if resp.status != 200:
+                    results[model] = f"API Error {resp.status}"
                     continue
 
-                resp = await fetch(api_url, method="POST", headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                }, body=json.dumps(payload))
-                
-                # Parse Response safely
-                resp_text = await resp.text()
                 data = json.loads(resp_text)
                 
                 if "error" in data:
@@ -82,7 +93,7 @@ async def handle_ranking(request, env):
                     rank = rank_list.index(company.lower()) + 1
                     results[model] = f"#{rank}"
                 except ValueError:
-                    results[model] = "Not in Top 10"
+                    results[model] = "Not in Top 5"
 
             except Exception as inner_e:
                 results[model] = f"Processing Error: {str(inner_e)}"
