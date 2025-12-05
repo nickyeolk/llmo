@@ -1,7 +1,6 @@
 name = "llmo-ranker"
-main = "src/entry.py"
+main = "src/worker.js"
 compatibility_date = "2024-03-20"
-compatibility_flags = ["python_workers"]
 
 # This creates the record llmo.wildnode.io automatically
 [[routes]]
