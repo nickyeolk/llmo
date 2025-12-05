@@ -17,3 +17,10 @@ run_worker_first = true
 # Variable placeholders (secrets are set in dashboard/GitHub)
 [vars]
 # OPENROUTER_API_KEY = "set-via-secret"
+
+[observability]
+[observability.logs]
+enabled = false
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
