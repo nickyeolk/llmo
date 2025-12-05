@@ -1,27 +1,30 @@
-from js import Response
-from pyodide.http import pyfetch
+from js import Response, fetch, JSON
 import json
 
 async def on_fetch(request, env):
     try:
         url = request.url
 
-        # 1. API Route
+        # 1. API Route: Handle the ranking logic
         if "/api/rank" in url and request.method == "POST":
             return await handle_ranking(request, env)
 
         # 2. Static Assets (Fallback)
+        # This serves your HTML page. 
+        # If this was hanging before, removing 'pyodide' imports will fix it.
         return await env.ASSETS.fetch(request)
 
     except Exception as e:
+        # Return JSON error to prevent frontend crash
         return Response.new(json.dumps({"error": f"Critical Error: {str(e)}"}), status=500, headers={
             "Content-Type": "application/json"
         })
 
 async def handle_ranking(request, env):
     try:
-        # Parse Request
+        # 1. Robust Request Parsing
         try:
+            # We get the text first, then parse in Python. Safer than request.json()
             req_text = await request.text()
             req_json = json.loads(req_text)
         except:
@@ -33,6 +36,7 @@ async def handle_ranking(request, env):
         if not company or not industry:
             return Response.new(json.dumps({"error": "Missing company or industry"}), status=400)
 
+        # 2. Config
         models = [
             "openai/gpt-4o",
             "anthropic/claude-3.5-sonnet", 
@@ -40,9 +44,9 @@ async def handle_ranking(request, env):
         ]
         
         prompt = f"List the top 5 most popular companies in the {industry} industry. Return ONLY a comma-separated list."
-
         results = {}
 
+        # 3. Loop through models
         for model in models:
             try:
                 api_url = "https://openrouter.ai/api/v1/chat/completions"
@@ -52,38 +56,45 @@ async def handle_ranking(request, env):
                     results[model] = "Error: Key Missing"
                     continue
 
-                # --- THE FIX: Use pyfetch ---
-                # pyfetch handles the 'headers' dict and 'body' conversion automatically.
-                # It behaves like a standard Python async library.
-                resp = await pyfetch(
-                    api_url,
-                    method="POST",
-                    headers={
+                # --- THE STABLE FIX ---
+                # We construct the request options as a Python Dict
+                py_options = {
+                    "method": "POST",
+                    "headers": {
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json"
                     },
-                    body=json.dumps({
+                    "body": json.dumps({
                         "model": model,
                         "messages": [{"role": "user", "content": prompt}]
                     })
-                )
-                # ----------------------------
+                }
+                
+                # We convert it to a JavaScript Object using Native JS JSON.parse
+                # This bypasses all Pyodide FFI/conversion bugs.
+                js_options = JSON.parse(json.dumps(py_options))
+                
+                # Now we call the native JS fetch
+                resp = await fetch(api_url, js_options)
+                # ----------------------
 
+                # Handle HTTP Errors
                 if resp.status != 200:
                     results[model] = f"API Error {resp.status}"
                     continue
 
-                # pyfetch returns a response object with an async .json() method
-                data = await resp.json()
+                # Parse Response (Text -> Python Dict)
+                resp_text = await resp.text()
+                data = json.loads(resp_text)
                 
                 if "error" in data:
                     results[model] = f"API Error: {data['error'].get('message', 'Unknown')}"
                     continue
 
+                # Calculate Rank
                 content = data['choices'][0]['message']['content']
-                
-                # Ranking Logic
                 rank_list = [x.strip().lower() for x in content.split(",")]
+                
                 try:
                     rank = rank_list.index(company.lower()) + 1
                     results[model] = f"#{rank}"
