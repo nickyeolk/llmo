@@ -10,17 +10,14 @@
         h1 { margin-top: 0; margin-bottom: 0.5rem; }
         .subtitle { color: #71717a; margin-bottom: 2rem; margin-top: 0;}
         
-        /* NEW: Flex Row Layout */
         .input-row {
             display: flex;
             gap: 1rem;
-            align-items: flex-end; /* Aligns inputs and button to bottom */
+            align-items: flex-end;
             margin-bottom: 2rem;
         }
         
-        .input-group {
-            flex: 1; /* Both inputs take equal width */
-        }
+        .input-group { flex: 1; }
 
         label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #3f3f46; font-size: 0.9rem;}
         input { width: 100%; padding: 0.75rem; border: 1px solid #d4d4d8; border-radius: 6px; box-sizing: border-box; font-size: 1rem;}
@@ -35,7 +32,7 @@
             font-size: 1rem; 
             cursor: pointer; 
             transition: background 0.2s; 
-            height: 46px; /* Match input height roughly */
+            height: 46px; 
             white-space: nowrap;
         }
         button:hover { background: #1d4ed8; }
@@ -46,7 +43,6 @@
         /* Model Blocks */
         .model-details { background: white; border: 2px solid #e4e4e7; border-radius: 8px; overflow: hidden; }
         
-        /* Summary Header Styles */
         .model-summary { 
             background: #fafafa; 
             padding: 1rem; 
@@ -65,7 +61,6 @@
             padding-right: 1rem;
         }
 
-        /* Overall Score Badge */
         .overall-score {
             font-size: 0.9rem;
             background: #18181b;
@@ -92,7 +87,6 @@
         .rank-badge.not-found { background: #f3f4f6; color: #64748b; font-weight: 500;}
         .rank-badge.error { background: #fee2e2; color: #991b1b; }
         
-        /* Mobile responsive */
         @media (max-width: 600px) {
             .input-row { flex-direction: column; align-items: stretch; gap: 1rem;}
         }
@@ -106,12 +100,12 @@
         <div class="input-row">
             <div class="input-group">
                 <label for="company">Company Name</label>
-                <input type="text" id="company" placeholder="e.g. Patagonia">
+                <input type="text" id="company" placeholder="Patagonia">
             </div>
             
             <div class="input-group">
                 <label for="industry">Industry</label>
-                <input type="text" id="industry" placeholder="e.g. Outdoor Apparel">
+                <input type="text" id="industry" placeholder="Outdoor Apparel">
             </div>
             
             <button onclick="getRankings()" id="btn">Analyze</button>
@@ -124,10 +118,19 @@
         async function getRankings() {
             const btn = document.getElementById('btn');
             const resDiv = document.getElementById('results');
-            const company = document.getElementById('company').value;
-            const industry = document.getElementById('industry').value;
+            
+            // --- NEW DEFAULT LOGIC ---
+            const compInput = document.getElementById('company');
+            const indInput = document.getElementById('industry');
 
-            if(!company || !industry) return alert("Please fill in both fields");
+            // If empty, grab the placeholder text
+            const company = compInput.value.trim() || compInput.getAttribute('placeholder');
+            const industry = indInput.value.trim() || indInput.getAttribute('placeholder');
+
+            // Visually update the inputs so the user sees what's happening
+            if (!compInput.value) compInput.value = company;
+            if (!indInput.value) indInput.value = industry;
+            // -------------------------
 
             btn.innerText = "Running...";
             btn.disabled = true;
@@ -162,3 +165,70 @@
                     let dimensionsHtml = "";
                     let totalRankScore = 0;
                     let validRankCount = 0;
+
+                    dimensionsList.forEach(dim => {
+                        const result = dimensionResults[dim] || { rank: "Error", raw: "Failed" };
+
+                        let badgeClass = "rank-badge";
+                        let rankVal = 6; 
+
+                        if (result.rank.includes("Error")) {
+                            badgeClass += " error";
+                            rankVal = null;
+                        } else if (result.rank.startsWith("#")) {
+                            rankVal = parseInt(result.rank.substring(1));
+                        } else {
+                            badgeClass += " not-found";
+                            rankVal = 6; 
+                        }
+
+                        if (rankVal !== null) {
+                            totalRankScore += rankVal;
+                            validRankCount++;
+                        }
+                        
+                        dimensionsHtml += `
+                            <details class="dim-details">
+                                <summary class="dim-summary">
+                                    <span>${dim}</span>
+                                    <span class="${badgeClass}">${result.rank}</span>
+                                </summary>
+                                <div class="raw-text"><strong>Raw AI Output:</strong><br>${result.raw}</div>
+                            </details>
+                        `;
+                    });
+
+                    let overallText = "N/A";
+                    if (validRankCount > 0) {
+                        const avg = (totalRankScore / validRankCount).toFixed(1);
+                        overallText = `Avg Rank: ${avg}`;
+                    }
+
+                    html += `
+                        <details class="model-details" open>
+                            <summary class="model-summary">
+                                <div class="model-header-content">
+                                    <span>🤖 ${shortModelName}</span>
+                                    <span class="overall-score">${overallText}</span>
+                                </div>
+                            </summary>
+                            <div class="dimensions-container">
+                                ${dimensionsHtml}
+                            </div>
+                        </details>`;
+                }
+                resDiv.innerHTML = html;
+
+            } catch (e) {
+                resDiv.innerHTML = `<div style="padding:2rem; text-align:center; color:#ef4444; background:#fef2f2; border-radius:8px;"><strong>Error:</strong> ${e.message}</div>`;
+            } finally {
+                btn.innerText = "Analyze";
+                btn.disabled = false;
+            }
+        }
+    </script>
+    <style>
+        @keyframes load { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+    </style>
+</body>
+</html>
