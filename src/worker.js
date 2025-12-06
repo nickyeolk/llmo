@@ -166,8 +166,7 @@ async function handleRanking(request, env) {
 
 /**
  * AI Entity Resolver
- * Uses a cheap model to check if 'target' is semantically present in 'list'.
- * Returns the 1-based index (1-5) or -1.
+ * Uses GPT-4o-mini for high-accuracy, low-cost entity matching.
  */
 async function resolveEntityWithAI(apiKey, list, target) {
     try {
@@ -175,15 +174,24 @@ async function resolveEntityWithAI(apiKey, list, target) {
             method: "POST",
             headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-                model: "meta-llama/llama-3.2-3b-instruct", // Fast & Cheap
+                model: "openai/gpt-4o-mini", // Very reliable at following negative constraints
                 messages: [
                     { 
                         role: "system", 
-                        content: "You are an entity resolution engine. You will be given a list of entities and a target name. If the target refers to any entity in the list (even if spelled differently or is a sub-brand), return the exact index number (1-5) of the match. If no match, return 0. Return ONLY the number." 
+                        content: `You are a strict data validation engine. 
+                        
+                        Task: Determine if the "Target" exists in the "List", even if spelled slightly differently or listed as a sub-brand.
+                        
+                        Rules:
+                        1. Return the 1-based index (1, 2, 3...) ONLY if the Target is semantically the SAME entity as an item in the list.
+                        2. If the Target is a competitor, a different brand, or simply not there, return 0.
+                        3. Be strict. "Purina" != "Hill's".
+                        
+                        Return ONLY the single digit.` 
                     },
                     { 
                         role: "user", 
-                        content: `List: ${JSON.stringify(list)}\nTarget: "${target}"\n\nReturn the 1-based index number of the match, or 0 if not found. Return ONLY the digit.` 
+                        content: `List: ${JSON.stringify(list)}\nTarget: "${target}"` 
                     }
                 ]
             })
@@ -191,17 +199,24 @@ async function resolveEntityWithAI(apiKey, list, target) {
 
         if (!response.ok) return -1;
         const data = await response.json();
+        
+        if (data.error) return -1;
+
         const content = data.choices[0].message.content.trim();
         
-        // Try to parse a number from the response
-        const match = content.match(/(\d)/);
+        // If the AI explicitly says 0, it's a non-match.
+        if (content === "0") return -1; 
+        
+        // Parse the number
+        const match = content.match(/(\d+)/);
         if (match) {
             const index = parseInt(match[1]);
-            if (index >= 1 && index <= 5) return index;
+            // Validate index is within bounds
+            if (index >= 1 && index <= list.length) return index;
         }
         return -1;
     } catch (e) {
-        return -1; // Fallback to not found on error
+        return -1; 
     }
 }
 
