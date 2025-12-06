@@ -10,69 +10,55 @@
         h1 { margin-top: 0; margin-bottom: 0.5rem; }
         .subtitle { color: #71717a; margin-bottom: 2rem; margin-top: 0;}
         
-        .input-row {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-end;
-            margin-bottom: 2rem;
-        }
-        
+        .input-row { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 2rem; }
         .input-group { flex: 1; }
 
         label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #3f3f46; font-size: 0.9rem;}
         input { width: 100%; padding: 0.75rem; border: 1px solid #d4d4d8; border-radius: 6px; box-sizing: border-box; font-size: 1rem;}
         
         button { 
-            padding: 0.75rem 1.5rem; 
-            background: #2563eb; 
-            color: white; 
-            border: none; 
-            border-radius: 6px; 
-            font-weight: 700; 
-            font-size: 1rem; 
-            cursor: pointer; 
-            transition: background 0.2s; 
-            height: 46px; 
-            white-space: nowrap;
+            padding: 0.75rem 1.5rem; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; height: 46px; white-space: nowrap;
         }
         button:hover { background: #1d4ed8; }
         button:disabled { background: #93c5fd; cursor: not-allowed; }
         
         #results { margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
         
-        /* Model Blocks */
+        /* --- NEW: Consensus Box Styles --- */
+        .consensus-box {
+            background: #18181b; /* Dark bg for contrast */
+            color: #f4f4f5;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid #27272a;
+        }
+        .consensus-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a1a1aa;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        .consensus-text {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            font-family: Georgia, 'Times New Roman', Times, serif; /* Serif for "Editorial" feel */
+        }
+        /* -------------------------------- */
+
         .model-details { background: white; border: 2px solid #e4e4e7; border-radius: 8px; overflow: hidden; }
         
         .model-summary { 
-            background: #fafafa; 
-            padding: 1rem; 
-            font-weight: 700; 
-            font-size: 1.1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: #fafafa; padding: 1rem; font-weight: 700; font-size: 1.1rem;
+            display: flex; justify-content: space-between; align-items: center;
         }
 
-        .model-header-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            padding-right: 1rem;
-        }
-
-        .overall-score {
-            font-size: 0.9rem;
-            background: #18181b;
-            color: white;
-            padding: 0.35rem 0.75rem;
-            border-radius: 6px;
-            font-weight: 600;
-        }
+        .model-header-content { display: flex; align-items: center; justify-content: space-between; width: 100%; padding-right: 1rem; }
+        .overall-score { font-size: 0.9rem; background: #18181b; color: white; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 600; }
         
         .dimensions-container { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; background: #fff;}
-
-        /* Dimension Items */
         .dim-details { border: 1px solid #e4e4e7; border-radius: 6px; }
         .dim-summary { padding: 0.75rem; font-size: 0.95rem; color: #3f3f46; background: #f8fafc;}
         .dim-summary:hover { background: #f1f5f9; }
@@ -87,9 +73,7 @@
         .rank-badge.not-found { background: #f3f4f6; color: #64748b; font-weight: 500;}
         .rank-badge.error { background: #fee2e2; color: #991b1b; }
         
-        @media (max-width: 600px) {
-            .input-row { flex-direction: column; align-items: stretch; gap: 1rem;}
-        }
+        @media (max-width: 600px) { .input-row { flex-direction: column; align-items: stretch; gap: 1rem;} }
     </style>
 </head>
 <body>
@@ -119,28 +103,25 @@
             const btn = document.getElementById('btn');
             const resDiv = document.getElementById('results');
             
-            // --- NEW DEFAULT LOGIC ---
             const compInput = document.getElementById('company');
             const indInput = document.getElementById('industry');
-
-            // If empty, grab the placeholder text
             const company = compInput.value.trim() || compInput.getAttribute('placeholder');
             const industry = indInput.value.trim() || indInput.getAttribute('placeholder');
 
-            // Visually update the inputs so the user sees what's happening
             if (!compInput.value) compInput.value = company;
             if (!indInput.value) indInput.value = industry;
-            // -------------------------
 
-            btn.innerText = "Running...";
+            btn.innerText = "Analyzing...";
             btn.disabled = true;
             
+            // Updated Loading State
             resDiv.innerHTML = `
                 <div style='text-align:center; color:#666; padding: 2rem;'>
                     <p><strong>Phase 1:</strong> Identifying 5 key ${industry} dimensions...</p>
                     <p><strong>Phase 2:</strong> Scanning 6 AI models (30 concurrent queries)...</p>
+                    <p><strong>Phase 3:</strong> Generating Competitor Analysis with Grok...</p>
                     <div style="margin-top:1rem; height:4px; background:#e4e4e7; border-radius:2px; overflow:hidden;">
-                        <div style="height:100%; background:#2563eb; width:50%; animation: load 2s infinite;"></div>
+                        <div style="height:100%; background:#2563eb; width:50%; animation: load 2.5s infinite;"></div>
                     </div>
                 </div>`;
 
@@ -152,10 +133,21 @@
                 });
                 
                 const data = await response.json();
-
                 if (data.error) throw new Error(data.error);
                 
                 let html = "";
+                
+                // --- 1. RENDER SUMMARY ---
+                if (data.summary) {
+                    html += `
+                        <div class="consensus-box">
+                            <div class="consensus-title">🤖 AI Consensus Report</div>
+                            <div class="consensus-text">${data.summary}</div>
+                        </div>
+                    `;
+                }
+
+                // --- 2. RENDER BREAKDOWN ---
                 const dimensionsList = data.dimensions;
                 const modelResults = data.modelResults;
 
@@ -168,7 +160,6 @@
 
                     dimensionsList.forEach(dim => {
                         const result = dimensionResults[dim] || { rank: "Error", raw: "Failed" };
-
                         let badgeClass = "rank-badge";
                         let rankVal = 6; 
 
@@ -208,7 +199,7 @@
                         <details class="model-details" open>
                             <summary class="model-summary">
                                 <div class="model-header-content">
-                                    <span>🤖 ${shortModelName}</span>
+                                    <span>${shortModelName}</span>
                                     <span class="overall-score">${overallText}</span>
                                 </div>
                             </summary>
