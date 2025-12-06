@@ -63,10 +63,9 @@ async function handleRanking(request, env) {
     const finalOutput = {
         dimensions: dimensions,
         modelResults: {},
-        summary: "" // Placeholder for Phase 3
+        summary: "" 
     };
 
-    // To help Phase 3, we will collect a text transcript of all results
     let analysisTranscript = `Analysis for company "${company}" in industry "${industry}".\n\nData collected:\n`;
 
     await Promise.all(models.map(async (model) => {
@@ -99,17 +98,26 @@ async function handleRanking(request, env) {
 
           const content = data.choices[0].message.content;
           const rankList = content.split(",").map(x => x.trim());
-          const rankIndex = findRank(rankList, company);
+          
+          // --- 1. FAST MATCH (String Algo) ---
+          let rankIndex = findRank(rankList, company);
+
+          // --- 2. SMART FALLBACK (LLM Judge) ---
+          // If algorithm missed it, ask the AI if any item in the list is a synonym
+          if (rankIndex === -1) {
+             const aiMatchIndex = await resolveEntityWithAI(apiKey, rankList, company);
+             if (aiMatchIndex !== -1) {
+                 rankIndex = aiMatchIndex;
+             }
+          }
+          
           const rankStr = rankIndex !== -1 ? `#${rankIndex}` : "Not in Top 5";
 
-          // Save Data
           finalOutput.modelResults[model][dimension] = {
               rank: rankStr,
               raw: content
           };
 
-          // Append to transcript for Phase 3
-          // We include the full list so Grok can see competitors
           analysisTranscript += `Model: ${model} | Dimension: ${dimension} | ${company} Rank: ${rankStr} | Full List: [${content}]\n`;
 
         } catch (err) {
@@ -119,23 +127,20 @@ async function handleRanking(request, env) {
     }));
 
     // =========================================
-    // PHASE 3: AI Consensus Summary (New!)
+    // PHASE 3: AI Consensus Summary
     // =========================================
     try {
         const summaryResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-                model: "x-ai/grok-4.1-fast", // Using the smart model requested
+                model: "x-ai/grok-4.1-fast",
                 messages: [
                     { 
                         role: "system", 
-                        content: "You are a Senior Market Analyst. You will receive raw ranking data for a target company. Your job is to write a concise, professional paragraph (approx 80-100 words) summarizing the consensus. 1) Mention the company's strongest and weakest dimensions. 2) Identify the 2-3 main competitors that appear most frequently in the lists. 3) Give a final verdict on their market position." 
+                        content: "You are a Senior Market Analyst. Write a concise, professional paragraph (80-100 words) summarizing the consensus. 1) Mention the company's strongest/weakest dimensions. 2) Identify 2-3 main competitors. 3) Give a final verdict." 
                     },
-                    { 
-                        role: "user", 
-                        content: analysisTranscript 
-                    }
+                    { role: "user", content: analysisTranscript }
                 ]
             })
         });
@@ -146,7 +151,6 @@ async function handleRanking(request, env) {
         } else {
             finalOutput.summary = "Unable to generate summary due to API error.";
         }
-
     } catch (e) {
         finalOutput.summary = `Summary generation failed: ${e.message}`;
     }
@@ -160,7 +164,48 @@ async function handleRanking(request, env) {
   }
 }
 
-// Helper Functions
+/**
+ * AI Entity Resolver
+ * Uses a cheap model to check if 'target' is semantically present in 'list'.
+ * Returns the 1-based index (1-5) or -1.
+ */
+async function resolveEntityWithAI(apiKey, list, target) {
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "meta-llama/llama-3.2-3b-instruct", // Fast & Cheap
+                messages: [
+                    { 
+                        role: "system", 
+                        content: "You are an entity resolution engine. You will be given a list of entities and a target name. If the target refers to any entity in the list (even if spelled differently or is a sub-brand), return the exact index number (1-5) of the match. If no match, return 0. Return ONLY the number." 
+                    },
+                    { 
+                        role: "user", 
+                        content: `List: ${JSON.stringify(list)}\nTarget: "${target}"\n\nReturn the 1-based index number of the match, or 0 if not found. Return ONLY the digit.` 
+                    }
+                ]
+            })
+        });
+
+        if (!response.ok) return -1;
+        const data = await response.json();
+        const content = data.choices[0].message.content.trim();
+        
+        // Try to parse a number from the response
+        const match = content.match(/(\d)/);
+        if (match) {
+            const index = parseInt(match[1]);
+            if (index >= 1 && index <= 5) return index;
+        }
+        return -1;
+    } catch (e) {
+        return -1; // Fallback to not found on error
+    }
+}
+
+// Standard Algorithmic Matcher
 function findRank(list, target) {
   if (!target) return -1;
   const cleanTarget = target.toLowerCase().trim();
