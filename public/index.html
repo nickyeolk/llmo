@@ -3,80 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLM Brand Ranker</title>
+    <title>LLM Brand Ranker Pro</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 4rem auto; padding: 0 1rem; background: #f4f4f5; }
-        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { margin-top: 0; color: #18181b; }
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 4rem auto; padding: 0 1rem; background: #f4f4f5; color: #18181b; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e4e4e7;}
+        h1 { margin-top: 0; }
+        .subtitle { color: #71717a; margin-bottom: 2rem;}
         label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #3f3f46; }
-        input { width: 100%; padding: 0.75rem; margin-bottom: 1.5rem; border: 1px solid #d4d4d8; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        input { width: 100%; padding: 0.75rem; margin-bottom: 1.5rem; border: 1px solid #d4d4d8; border-radius: 6px; box-sizing: border-box; font-size: 1rem;}
+        button { width: 100%; padding: 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
         button:hover { background: #1d4ed8; }
+        button:disabled { background: #93c5fd; cursor: not-allowed; }
         
-        /* New Styles for Dropdown */
-        #results { margin-top: 2rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        #results { margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
         
-        details {
-            background: #fff;
-            border: 1px solid #e4e4e7;
-            border-radius: 8px;
-            overflow: hidden;
-        }
+        /* LEVEL 1: MODEL DROPDOWN */
+        .model-details { background: white; border: 2px solid #e4e4e7; border-radius: 8px; overflow: hidden; }
+        .model-summary { background: #fafafa; padding: 1rem; font-weight: 700; font-size: 1.1rem;}
+        
+        /* LEVEL 2: DIMENSION CONTAINER */
+        .dimensions-container { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; background: #fff;}
 
-        summary {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            cursor: pointer;
-            list-style: none; /* Hides default triangle */
-            font-weight: 500;
-        }
+        /* LEVEL 2: DIMENSION DROPDOWN */
+        .dim-details { border: 1px solid #e4e4e7; border-radius: 6px; }
+        .dim-summary { padding: 0.75rem; font-size: 0.95rem; color: #3f3f46; background: #f8fafc;}
+        .dim-summary:hover { background: #f1f5f9; }
 
-        summary:hover { background: #fafafa; }
-        
-        /* Custom arrow icon */
-        summary::after {
-            content: "▼";
-            font-size: 0.8rem;
-            color: #a1a1aa;
-            transition: transform 0.2s;
-        }
-        
+        summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; }
+        summary::after { content: "▼"; font-size: 0.8rem; color: #a1a1aa; transition: transform 0.2s; margin-left: 10px;}
         details[open] summary::after { transform: rotate(180deg); }
 
-        .raw-text {
-            padding: 1rem;
-            background: #f8fafc;
-            border-top: 1px solid #e4e4e7;
-            font-size: 0.9rem;
-            color: #475569;
-            font-family: monospace;
-            white-space: pre-wrap; /* Keeps formatting */
-        }
+        .raw-text { padding: 1rem; background: #f1f5f9; border-top: 1px solid #e4e4e7; font-size: 0.9rem; color: #475569; font-family: monospace; white-space: pre-wrap; }
 
-        .rank-badge { 
-            background: #e0f2fe; color: #0369a1; 
-            padding: 0.25rem 0.75rem; border-radius: 999px; 
-            font-weight: 700; font-size: 0.875rem; 
-            margin-right: 1rem; /* Space before arrow */
-        }
-        
+        .rank-badge { background: #e0f2fe; color: #0369a1; padding: 0.25rem 0.75rem; border-radius: 999px; font-weight: 700; font-size: 0.875rem; }
+        .rank-badge.not-found { background: #f3f4f6; color: #64748b; font-weight: 500;}
         .rank-badge.error { background: #fee2e2; color: #991b1b; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>🏆 LLMO Ranker</h1>
-        <p>Check where your brand ranks in the "mind" of AI.</p>
+        <h1>🏆 LLMO Ranker Pro</h1>
+        <p class="subtitle">Multi-dimensional AI brand analysis across 6 top models.</p>
         
         <label for="company">Company Name</label>
-        <input type="text" id="company" placeholder="e.g. Nike">
+        <input type="text" id="company" placeholder="e.g. Patagonia">
         
         <label for="industry">Industry</label>
-        <input type="text" id="industry" placeholder="e.g. Sportswear">
+        <input type="text" id="industry" placeholder="e.g. Outdoor Apparel">
         
-        <button onclick="getRankings()" id="btn">Analyze</button>
+        <button onclick="getRankings()" id="btn">Run Deep Analysis</button>
         
         <div id="results"></div>
     </div>
@@ -90,9 +65,15 @@
 
             if(!company || !industry) return alert("Please fill in both fields");
 
-            btn.innerText = "Analyzing...";
+            btn.innerText = "Running Deep Analysis (approx 15s)...";
             btn.disabled = true;
-            resDiv.innerHTML = "<p style='text-align:center; color:#666;'>⏳ Consulting 6 AI Models... (approx 8s)</p>";
+            // Inform user about the two phases
+            resDiv.innerHTML = `
+                <div style='text-align:center; color:#666; padding: 2rem;'>
+                    <p><strong>Phase 1:</strong> Identifying key ${industry} dimensions using Llama-3.2...</p>
+                    <p><strong>Phase 2:</strong> Querying 6 frontier models across all dimensions concurrently...</p>
+                    <p style="margin-top:1rem">Create ☕ This involves ~30 AI calls.</p>
+                </div>`;
 
             try {
                 const response = await fetch('/api/rank', {
@@ -104,35 +85,56 @@
                 const data = await response.json();
 
                 if (data.error) {
-                    resDiv.innerHTML = `<p style="color:red; font-weight:bold;">${data.error}</p>`;
-                    return;
+                    throw new Error(data.error);
                 }
                 
                 let html = "";
-                for (const [model, result] of Object.entries(data)) {
-                    // Determine styles based on rank/error
-                    const isError = result.rank.toString().includes("Error");
-                    const badgeClass = isError ? "rank-badge error" : "rank-badge";
-                    
-                    // Simplify model name for display (e.g. "openai/gpt-5" -> "gpt-5")
-                    const shortName = model.split('/')[1] || model;
+                const dimensionsList = data.dimensions;
+                const modelResults = data.modelResults;
 
-                    html += `
-                        <details>
-                            <summary>
-                                <span>${shortName}</span>
-                                <div style="display:flex; align-items:center;">
+                // Loop 1: The Models (Outer Dropdowns)
+                for (const [modelName, dimensionResults] of Object.entries(modelResults)) {
+                    const shortModelName = modelName.split('/')[1] || modelName;
+                    
+                    let dimensionsHtml = "";
+
+                    // Loop 2: The Dimensions inside that model (Inner Dropdowns)
+                    dimensionsList.forEach(dim => {
+                        // Guard against partial failures where a dim might be missing for a model
+                        const result = dimensionResults[dim] || { rank: "Error", raw: "Failed to get data" };
+
+                        let badgeClass = "rank-badge";
+                        if (result.rank.includes("Error")) badgeClass += " error";
+                        else if (result.rank.includes("Not in")) badgeClass += " not-found";
+                        
+                        dimensionsHtml += `
+                            <details class="dim-details">
+                                <summary class="dim-summary">
+                                    <span>${dim}</span>
                                     <span class="${badgeClass}">${result.rank}</span>
-                                </div>
+                                </summary>
+                                <div class="raw-text"><strong>Raw AI Output:</strong><br>${result.raw}</div>
+                            </details>
+                        `;
+                    });
+
+                    // Combine into the Model dropdown block
+                    html += `
+                        <details class="model-details" open>
+                            <summary class="model-summary">
+                                <span>🤖 ${shortModelName}</span>
                             </summary>
-                            <div class="raw-text"><strong>Full Response:</strong><br>${result.raw}</div>
+                            <div class="dimensions-container">
+                                ${dimensionsHtml}
+                            </div>
                         </details>`;
                 }
                 resDiv.innerHTML = html;
+
             } catch (e) {
-                resDiv.innerHTML = `<p style="color:red">Frontend Error: ${e.message}</p>`;
+                resDiv.innerHTML = `<div style="padding:2rem; text-align:center; color:#ef4444; background:#fef2f2; border-radius:8px;"><strong>Analysis Failed:</strong><br>${e.message}</div>`;
             } finally {
-                btn.innerText = "Analyze";
+                btn.innerText = "Run Deep Analysis";
                 btn.disabled = false;
             }
         }
