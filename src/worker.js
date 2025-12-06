@@ -2,13 +2,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // 1. API Route
     if (url.pathname.endsWith("/api/rank") && request.method === "POST") {
       return handleRanking(request, env);
     }
 
-    // 2. Static Assets (Fallback)
-    // This serves your HTML from the public folder
     return env.ASSETS.fetch(request);
   }
 };
@@ -24,6 +21,7 @@ async function handleRanking(request, env) {
       });
     }
 
+    // 2025 Model List
     const models = [
       "openai/gpt-5-nano",
       "anthropic/claude-haiku-4.5",
@@ -36,13 +34,11 @@ async function handleRanking(request, env) {
     const prompt = `List the top 5 most popular companies in the ${industry} industry. Return ONLY a comma-separated list of names.`;
     const results = {};
 
-    // Loop through models
-    // We use Promise.all to run them in PARALLEL (much faster than Python loop)
     await Promise.all(models.map(async (model) => {
       try {
         const apiKey = env.OPENROUTER_API_KEY;
         if (!apiKey) {
-          results[model] = "Error: Key Missing";
+          results[model] = { rank: "Error", raw: "API Key Missing" };
           return;
         }
 
@@ -59,26 +55,30 @@ async function handleRanking(request, env) {
         });
 
         if (!response.ok) {
-          results[model] = `API Error ${response.status}`;
+          results[model] = { rank: "Error", raw: `HTTP Status ${response.status}` };
           return;
         }
 
         const data = await response.json();
         
         if (data.error) {
-           results[model] = `API Error: ${data.error.message}`;
+           results[model] = { rank: "Error", raw: data.error.message };
            return;
         }
 
         const content = data.choices[0].message.content;
         const rankList = content.split(",").map(x => x.trim().toLowerCase());
         
-        // Find Rank
         const index = rankList.indexOf(company.toLowerCase());
-        results[model] = index !== -1 ? `#${index + 1}` : "Not in Top 5";
+        
+        // Save BOTH the rank and the raw content
+        results[model] = {
+            rank: index !== -1 ? `#${index + 1}` : "Not in Top 5",
+            raw: content
+        };
 
       } catch (err) {
-        results[model] = `Error: ${err.message}`;
+        results[model] = { rank: "Error", raw: err.message };
       }
     }));
 

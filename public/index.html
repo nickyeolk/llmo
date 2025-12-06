@@ -12,11 +12,57 @@
         input { width: 100%; padding: 0.75rem; margin-bottom: 1.5rem; border: 1px solid #d4d4d8; border-radius: 6px; box-sizing: border-box; }
         button { width: 100%; padding: 0.75rem; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
         button:hover { background: #1d4ed8; }
-        #results { margin-top: 2rem; }
-        .result-row { display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e4e4e7; }
-        .result-row:last-child { border-bottom: none; }
-        .model-name { font-weight: 500; }
-        .rank-badge { background: #e0f2fe; color: #0369a1; padding: 0.25rem 0.75rem; border-radius: 999px; font-weight: 700; font-size: 0.875rem; }
+        
+        /* New Styles for Dropdown */
+        #results { margin-top: 2rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        
+        details {
+            background: #fff;
+            border: 1px solid #e4e4e7;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            cursor: pointer;
+            list-style: none; /* Hides default triangle */
+            font-weight: 500;
+        }
+
+        summary:hover { background: #fafafa; }
+        
+        /* Custom arrow icon */
+        summary::after {
+            content: "▼";
+            font-size: 0.8rem;
+            color: #a1a1aa;
+            transition: transform 0.2s;
+        }
+        
+        details[open] summary::after { transform: rotate(180deg); }
+
+        .raw-text {
+            padding: 1rem;
+            background: #f8fafc;
+            border-top: 1px solid #e4e4e7;
+            font-size: 0.9rem;
+            color: #475569;
+            font-family: monospace;
+            white-space: pre-wrap; /* Keeps formatting */
+        }
+
+        .rank-badge { 
+            background: #e0f2fe; color: #0369a1; 
+            padding: 0.25rem 0.75rem; border-radius: 999px; 
+            font-weight: 700; font-size: 0.875rem; 
+            margin-right: 1rem; /* Space before arrow */
+        }
+        
+        .rank-badge.error { background: #fee2e2; color: #991b1b; }
     </style>
 </head>
 <body>
@@ -35,7 +81,7 @@
         <div id="results"></div>
     </div>
 
-<script>
+    <script>
         async function getRankings() {
             const btn = document.getElementById('btn');
             const resDiv = document.getElementById('results');
@@ -46,7 +92,7 @@
 
             btn.innerText = "Analyzing...";
             btn.disabled = true;
-            resDiv.innerHTML = "Loading... (This may take 5-10 seconds)";
+            resDiv.innerHTML = "<p style='text-align:center; color:#666;'>⏳ Consulting 6 AI Models... (approx 8s)</p>";
 
             try {
                 const response = await fetch('/api/rank', {
@@ -57,24 +103,30 @@
                 
                 const data = await response.json();
 
-                // HANDLE ERRORS: If the backend sent a JSON error, show it
                 if (data.error) {
                     resDiv.innerHTML = `<p style="color:red; font-weight:bold;">${data.error}</p>`;
                     return;
                 }
                 
                 let html = "";
-                for (const [model, rank] of Object.entries(data)) {
-                    // Check for per-model errors
-                    const isError = rank.toString().includes("Error");
-                    const color = isError ? "red" : "#0369a1";
-                    const bg = isError ? "#fee2e2" : "#e0f2fe";
+                for (const [model, result] of Object.entries(data)) {
+                    // Determine styles based on rank/error
+                    const isError = result.rank.toString().includes("Error");
+                    const badgeClass = isError ? "rank-badge error" : "rank-badge";
+                    
+                    // Simplify model name for display (e.g. "openai/gpt-5" -> "gpt-5")
+                    const shortName = model.split('/')[1] || model;
 
                     html += `
-                        <div class="result-row">
-                            <span class="model-name">${model.split('/')[1] || model}</span>
-                            <span class="rank-badge" style="color: ${color}; background: ${bg}">${rank}</span>
-                        </div>`;
+                        <details>
+                            <summary>
+                                <span>${shortName}</span>
+                                <div style="display:flex; align-items:center;">
+                                    <span class="${badgeClass}">${result.rank}</span>
+                                </div>
+                            </summary>
+                            <div class="raw-text"><strong>Full Response:</strong><br>${result.raw}</div>
+                        </details>`;
                 }
                 resDiv.innerHTML = html;
             } catch (e) {
