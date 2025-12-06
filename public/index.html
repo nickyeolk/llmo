@@ -3,13 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLM Brand Ranker Pro</title>
+    <title>LLMO Ranker</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 4rem auto; padding: 0 1rem; background: #f4f4f5; color: #18181b; }
         .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e4e4e7;}
-        h1 { margin-top: 0; margin-bottom: 0.5rem; }
-        .subtitle { color: #71717a; margin-bottom: 2rem; margin-top: 0;}
         
+        h1 { margin-top: 0; margin-bottom: 0.75rem; font-size: 2rem; }
+        
+        /* Updated Subtitle/Intro Styling */
+        .intro-text { 
+            color: #52525b; 
+            margin-bottom: 2rem; 
+            margin-top: 0; 
+            line-height: 1.6;
+            font-size: 1.05rem;
+            max-width: 650px;
+        }
+
         .input-row { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 2rem; }
         .input-group { flex: 1; }
 
@@ -24,9 +34,9 @@
         
         #results { margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
         
-        /* --- NEW: Consensus Box Styles --- */
+        /* Consensus Box */
         .consensus-box {
-            background: #18181b; /* Dark bg for contrast */
+            background: #18181b; 
             color: #f4f4f5;
             padding: 1.5rem;
             border-radius: 8px;
@@ -34,20 +44,13 @@
             border: 1px solid #27272a;
         }
         .consensus-title {
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #a1a1aa;
-            margin-bottom: 0.5rem;
-            font-weight: 700;
+            font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #a1a1aa; margin-bottom: 0.5rem; font-weight: 700;
         }
         .consensus-text {
-            font-size: 1.05rem;
-            line-height: 1.6;
-            font-family: Georgia, 'Times New Roman', Times, serif; /* Serif for "Editorial" feel */
+            font-size: 1.05rem; line-height: 1.6; font-family: Georgia, 'Times New Roman', Times, serif; 
         }
-        /* -------------------------------- */
 
+        /* Model Blocks */
         .model-details { background: white; border: 2px solid #e4e4e7; border-radius: 8px; overflow: hidden; }
         
         .model-summary { 
@@ -78,8 +81,12 @@
 </head>
 <body>
     <div class="card">
-        <h1>🏆 LLMO Ranker Pro</h1>
-        <p class="subtitle">Multi-dimensional AI brand analysis across 6 top models.</p>
+        <h1>🏆 LLMO Ranker</h1>
+        
+        <p class="intro-text">
+            As traditional SEO gives way to LLM Optimization, understanding how AI perceives your brand is critical. 
+            This tool pokes a wire into the "brain" of top models to tease out their implicit tendencies and rankings.
+        </p>
         
         <div class="input-row">
             <div class="input-group">
@@ -114,12 +121,12 @@
             btn.innerText = "Analyzing...";
             btn.disabled = true;
             
-            // Updated Loading State
+            // UPDATED LOADING STATE
             resDiv.innerHTML = `
                 <div style='text-align:center; color:#666; padding: 2rem;'>
                     <p><strong>Phase 1:</strong> Identifying 5 key ${industry} dimensions...</p>
                     <p><strong>Phase 2:</strong> Scanning 6 AI models (30 concurrent queries)...</p>
-                    <p><strong>Phase 3:</strong> Generating Competitor Analysis with Grok...</p>
+                    <p><strong>Phase 3:</strong> Synthesizing Consensus Analysis...</p>
                     <div style="margin-top:1rem; height:4px; background:#e4e4e7; border-radius:2px; overflow:hidden;">
                         <div style="height:100%; background:#2563eb; width:50%; animation: load 2.5s infinite;"></div>
                     </div>
@@ -137,7 +144,6 @@
                 
                 let html = "";
                 
-                // --- 1. RENDER SUMMARY ---
                 if (data.summary) {
                     html += `
                         <div class="consensus-box">
@@ -147,7 +153,6 @@
                     `;
                 }
 
-                // --- 2. RENDER BREAKDOWN ---
                 const dimensionsList = data.dimensions;
                 const modelResults = data.modelResults;
 
