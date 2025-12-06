@@ -21,7 +21,6 @@ async function handleRanking(request, env) {
       });
     }
 
-    // 2025 Model List
     const models = [
       "openai/gpt-5-nano",
       "anthropic/claude-haiku-4.5",
@@ -67,13 +66,16 @@ async function handleRanking(request, env) {
         }
 
         const content = data.choices[0].message.content;
-        const rankList = content.split(",").map(x => x.trim().toLowerCase());
         
-        const index = rankList.indexOf(company.toLowerCase());
+        // Split and clean up the list from the LLM
+        const rankList = content.split(",").map(x => x.trim());
         
-        // Save BOTH the rank and the raw content
+        // --- NEW FUZZY LOGIC HERE ---
+        const rankIndex = findRank(rankList, company);
+        // ----------------------------
+        
         results[model] = {
-            rank: index !== -1 ? `#${index + 1}` : "Not in Top 5",
+            rank: rankIndex !== -1 ? `#${rankIndex}` : "Not in Top 5",
             raw: content
         };
 
@@ -92,4 +94,63 @@ async function handleRanking(request, env) {
       headers: { "Content-Type": "application/json" }
     });
   }
+}
+
+/**
+ * Smart Fuzzy Finder
+ * Returns the 1-based rank (e.g., 1, 2, 3) or -1 if not found.
+ */
+function findRank(list, target) {
+  const cleanTarget = target.toLowerCase().trim();
+
+  // Helper to remove common suffixes for better matching
+  // e.g. "Heineken International" -> "heineken"
+  const stripSuffix = (str) => str.replace(/\b(inc|corp|corporation|ltd|limited|group|international|holdings)\b/g, "").trim();
+
+  for (let i = 0; i < list.length; i++) {
+    let item = list[i].toLowerCase().trim();
+    
+    // 1. Exact Match
+    if (item === cleanTarget) return i + 1;
+    
+    // 2. Substring Match (Solves the "Heineken" vs "Heineken International" issue)
+    // We check if the input is inside the result, OR if the result is inside the input.
+    if (item.includes(cleanTarget) || cleanTarget.includes(item)) return i + 1;
+    
+    // 3. Cleaned Match (Stripping "International", "Inc", etc.)
+    if (stripSuffix(item) === stripSuffix(cleanTarget)) return i + 1;
+
+    // 4. Simple Typo Tolerance (Levenshtein Distance)
+    // Allows for 2 character mistakes (e.g. "Hieneken" -> "Heineken")
+    if (levenshtein(item, cleanTarget) <= 2) return i + 1;
+  }
+  
+  return -1;
+}
+
+// Simple Edit Distance Algorithm (Levenshtein)
+function levenshtein(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  
+  // Optimization: If string length difference is big, don't bother calculating
+  if (Math.abs(a.length - b.length) > 2) return 100;
+
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+  for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1) // insertion/deletion
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
 }
