@@ -25,9 +25,12 @@ async function handleRanking(request, env) {
     }
 
     const models = [
-      "openai/gpt-4o",
-      "anthropic/claude-3.5-sonnet",
-      "meta-llama/llama-3-70b-instruct"
+      "openai/gpt-5-nano",
+      "anthropic/claude-haiku-4.5",
+      "meta-llama/llama-4-scout",
+      "mistralai/ministral-3b-2512",
+      "deepseek/deepseek-v3.2",
+      "x-ai/grok-4.1-fast"
     ];
 
     const prompt = `List the top 5 most popular companies in the ${industry} industry. Return ONLY a comma-separated list of names.`;
