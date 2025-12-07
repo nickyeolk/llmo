@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLMO Ranker</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        /* [Previous styles remain the same] */
         body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 4rem auto; padding: 0 1rem; background: #f4f4f5; color: #18181b; }
         .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e4e4e7;}
         h1 { margin-top: 0; margin-bottom: 0.75rem; font-size: 2rem; }
@@ -18,9 +18,36 @@
         button:hover { background: #1d4ed8; }
         button:disabled { background: #93c5fd; cursor: not-allowed; }
         #results { margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
-        .consensus-box { background: #18181b; color: #f4f4f5; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #27272a; display: none; } /* Hidden by default */
-        .consensus-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #a1a1aa; margin-bottom: 0.5rem; font-weight: 700; }
-        .consensus-text { font-size: 1.05rem; line-height: 1.6; font-family: Georgia, 'Times New Roman', Times, serif; }
+        
+        /* CONSENSUS BOX STYLES */
+        .consensus-box { 
+            background: #18181b; 
+            color: #f4f4f5; 
+            padding: 1.5rem; 
+            border-radius: 8px; 
+            margin-bottom: 1rem; 
+            border: 1px solid #27272a; 
+            /* Removed display:none so it can show immediately */
+        }
+        .consensus-title { 
+            font-size: 0.85rem; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+            color: #a1a1aa; 
+            margin-bottom: 0.5rem; 
+            font-weight: 700; 
+        }
+        .consensus-text { 
+            font-size: 1.05rem; 
+            line-height: 1.6; 
+            font-family: Georgia, 'Times New Roman', Times, serif; 
+        }
+        /* Markdown specific styles inside the dark box */
+        .consensus-text p { margin-top: 0; }
+        .consensus-text ul { padding-left: 1.2rem; color: #d4d4d8; }
+        .consensus-text li { margin-bottom: 0.25rem; }
+        .consensus-text strong { color: #fff; font-weight: 600; }
+
         .model-details { background: white; border: 2px solid #e4e4e7; border-radius: 8px; overflow: hidden; }
         .model-summary { background: #fafafa; padding: 1rem; font-weight: 700; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
         .model-header-content { display: flex; align-items: center; justify-content: space-between; width: 100%; padding-right: 1rem; }
@@ -36,9 +63,9 @@
         .rank-badge { background: #e0f2fe; color: #0369a1; padding: 0.25rem 0.75rem; border-radius: 999px; font-weight: 700; font-size: 0.875rem; }
         .rank-badge.not-found { background: #f3f4f6; color: #64748b; font-weight: 500;}
         .rank-badge.error { background: #fee2e2; color: #991b1b; }
-        /* Loading Spinner for Badges */
         .spinner { width: 16px; height: 16px; border: 2px solid #cbd5e1; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
         @media (max-width: 600px) { .input-row { flex-direction: column; align-items: stretch; gap: 1rem;} }
     </style>
 </head>
@@ -73,7 +100,6 @@
             "mistralai/ministral-3b-2512", "deepseek/deepseek-v3.2", "x-ai/grok-4.1-fast"
         ];
 
-        // Global store for dynamic scoring updates
         let modelScores = {}; 
 
         async function runAnalysis() {
@@ -90,7 +116,7 @@
             btn.innerText = "Analyzing...";
             btn.disabled = true;
             resDiv.innerHTML = "<div style='text-align:center; color:#666; margin-top:2rem;'>Connecting to Analysis Stream...</div>";
-            modelScores = {}; // Reset scores
+            modelScores = {}; 
 
             try {
                 const response = await fetch('/api/rank', {
@@ -99,12 +125,8 @@
                     body: JSON.stringify({ company, industry })
                 });
 
-                // Set up Stream Reader
                 const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
                 let buffer = "";
-
-                // Placeholder for when we know dimensions but before results come in
-                let dimensionsKnown = false;
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -112,11 +134,10 @@
                     
                     buffer += value;
                     const lines = buffer.split("\n\n");
-                    buffer = lines.pop(); // Keep partial line in buffer
+                    buffer = lines.pop(); 
 
                     for (const line of lines) {
                         if (line.startsWith("event: ")) {
-                            // Simple parsing of "event: type\ndata: json"
                             const parts = line.split("\n");
                             const eventType = parts[0].replace("event: ", "").trim();
                             const dataStr = parts[1].replace("data: ", "").trim();
@@ -141,42 +162,43 @@
                 container.innerHTML = `<div style="color:red; padding:1rem; border:1px solid red; border-radius:8px;">Error: ${data}</div>`;
             } 
             else if (type === "dimensions") {
-                // PHASE 1 DONE: Draw the Skeleton Grid
                 renderSkeleton(data, container);
             } 
             else if (type === "result") {
-                // PHASE 2 UPDATE: Fill in a specific cell
                 updateResultCell(data);
             } 
             else if (type === "summary") {
-                // PHASE 3 DONE: Show Summary
-                const summaryBox = document.getElementById("summary-box");
                 const summaryContent = document.getElementById("summary-content");
-                summaryContent.innerText = data;
-                summaryBox.style.display = "block";
+                // NEW: Use 'marked.parse' to convert markdown to HTML
+                summaryContent.innerHTML = marked.parse(data);
                 
-                // Move summary to top visually (it is already structurally at top)
-                summaryBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Add a nice fade-in effect to show it's done
+                summaryContent.style.opacity = 0;
+                summaryContent.style.transition = "opacity 0.5s";
+                requestAnimationFrame(() => summaryContent.style.opacity = 1);
             }
         }
 
         function renderSkeleton(dimensions, container) {
-            // Create the HTML structure immediately
+            // NEW: Draw the Consensus Box immediately with a spinner
             let html = `
                 <div id="summary-box" class="consensus-box">
                     <div class="consensus-title">🤖 AI Consensus Report</div>
-                    <div id="summary-content" class="consensus-text">Generating summary...</div>
+                    <div id="summary-content" class="consensus-text">
+                        <div style="display:flex; align-items:center; gap:0.75rem; color:#a1a1aa;">
+                            <span class="spinner" style="border-color:#52525b; border-top-color:#a1a1aa;"></span>
+                            <span>Synthesizing multi-model insights...</span>
+                        </div>
+                    </div>
                 </div>
             `;
 
             models.forEach(model => {
                 const shortName = model.split('/')[1];
-                // Initialize score tracker
                 modelScores[model] = { total: 0, count: 0 };
                 
                 let dimsHtml = "";
                 dimensions.forEach(dim => {
-                    // Unique ID for each cell so we can update it later
                     const cellId = `cell-${model}-${dim.replace(/\s+/g, '')}`;
                     dimsHtml += `
                         <details class="dim-details">
@@ -210,12 +232,10 @@
             const { model, dimension, rank, raw } = data;
             const cellId = `cell-${model}-${dimension.replace(/\s+/g, '')}`;
             
-            // Update Badge
             const badgeEl = document.getElementById(cellId);
             const rawEl = document.getElementById(`${cellId}-raw`);
             
             if (badgeEl && rawEl) {
-                // Style based on rank
                 let badgeClass = "rank-badge";
                 let rankVal = 6;
 
@@ -229,14 +249,12 @@
                 }
 
                 badgeEl.className = badgeClass;
-                badgeEl.innerHTML = rank; // Replace spinner with text
-                badgeEl.style.background = ""; // Remove skeleton gray
+                badgeEl.innerHTML = rank; 
+                badgeEl.style.background = ""; 
                 badgeEl.style.color = "";
 
-                // Update Raw Text
                 rawEl.innerText = raw;
 
-                // Update Running Average
                 if (rankVal !== null) {
                     const scoreData = modelScores[model];
                     scoreData.total += rankVal;
