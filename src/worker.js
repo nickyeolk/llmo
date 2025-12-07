@@ -2,29 +2,52 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Support both POST (for the actual stream) and OPTIONS (for CORS if needed)
     if (url.pathname.endsWith("/api/rank") && request.method === "POST") {
-      return handleRanking(request, env);
+      return handleStreamingRanking(request, env);
     }
 
     return env.ASSETS.fetch(request);
   }
 };
 
-async function handleRanking(request, env) {
-  try {
-    const { company, industry } = await request.json();
-    const apiKey = env.OPENROUTER_API_KEY;
+async function handleStreamingRanking(request, env) {
+  let { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
 
-    if (!company || !industry) return new Response(JSON.stringify({ error: "Missing inputs" }), { status: 400 });
-    if (!apiKey) return new Response(JSON.stringify({ error: "API Key Missing" }), { status: 500 });
+  // Helper to send SSE events
+  const send = async (event, data) => {
+    const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    await writer.write(encoder.encode(message));
+  };
 
-    const budget = { count: 0, limit: 45 };
-
-    // PHASE 1: Get Dimensions
-    budget.count++; 
-    let dimensions = [];
+  // Run the heavy logic in the background so we can return the 'readable' stream immediately
+  (async () => {
     try {
-      const dimResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const { company, industry } = await request.json();
+      const apiKey = env.OPENROUTER_API_KEY;
+
+      if (!company || !industry) {
+        await send("error", "Missing inputs");
+        await writer.close();
+        return;
+      }
+      if (!apiKey) {
+        await send("error", "API Key Missing");
+        await writer.close();
+        return;
+      }
+
+      const budget = { count: 0, limit: 45 };
+
+      // ===========================
+      // PHASE 1: Get Dimensions
+      // ===========================
+      let dimensions = [];
+      try {
+        budget.count++;
+        const dimResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -34,83 +57,101 @@ async function handleRanking(request, env) {
               { role: "user", content: `List exactly 5 key marketing dimensions critical for brand success in the ${industry} industry. Return ONLY a comma-separated list of 5 short phrases.` }
             ]
           })
-      });
-      if (!dimResponse.ok) throw new Error("Dimension fetch failed");
-      const dimData = await dimResponse.json();
-      dimensions = dimData.choices[0].message.content.split(",").map(d => d.trim()).slice(0, 5);
-    } catch (e) {
-       return new Response(JSON.stringify({ error: `Phase 1 Error: ${e.message}` }), { status: 500 });
-    }
+        });
 
-    // PHASE 2: The Matrix Query
-    const models = [
-      "openai/gpt-5-nano",
-      "anthropic/claude-haiku-4.5",
-      "meta-llama/llama-4-scout",
-      "mistralai/ministral-3b-2512",
-      "deepseek/deepseek-v3.2",
-      "x-ai/grok-4.1-fast"
-    ];
+        if (!dimResponse.ok) throw new Error("Dimension fetch failed");
+        const dimData = await dimResponse.json();
+        dimensions = dimData.choices[0].message.content.split(",").map(d => d.trim()).slice(0, 5);
+        
+        // STREAMING MOMENT 1: Send dimensions immediately
+        await send("dimensions", dimensions);
 
-    const finalOutput = { dimensions, modelResults: {}, summary: "" };
-    let analysisTranscript = `Analysis for "${company}" in "${industry}".\n\nData:\n`;
+      } catch (e) {
+        await send("error", `Phase 1 Error: ${e.message}`);
+        await writer.close();
+        return;
+      }
 
-    await Promise.all(models.map(async (model) => {
-      finalOutput.modelResults[model] = {};
-      
-      await Promise.all(dimensions.map(async (dimension) => {
-        budget.count++; 
-        try {
-          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: model,
-              messages: [
-                { role: "system", content: "Expert analyst. Return comma-separated list." },
-                { role: "user", content: `List top 5 brands in ${industry} for '${dimension}'. Return ONLY comma-separated list.` }
-              ]
-            })
-          });
+      // ===========================
+      // PHASE 2: Matrix Query
+      // ===========================
+      const models = [
+        "openai/gpt-5-nano",
+        "anthropic/claude-haiku-4.5",
+        "meta-llama/llama-4-scout",
+        "mistralai/ministral-3b-2512",
+        "deepseek/deepseek-v3.2",
+        "x-ai/grok-4.1-fast"
+      ];
 
-          if (!response.ok) {
-             finalOutput.modelResults[model][dimension] = { rank: "Error", raw: `HTTP ${response.status}` };
-             return;
+      // We collect transcript for Phase 3, but we STREAM the results for Phase 2
+      let analysisTranscript = `Analysis for "${company}" in "${industry}".\n\nData:\n`;
+
+      await Promise.all(models.map(async (model) => {
+        await Promise.all(dimensions.map(async (dimension) => {
+          budget.count++;
+          try {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: model,
+                messages: [
+                  { role: "system", content: "Expert analyst. Return comma-separated list." },
+                  { role: "user", content: `List top 5 brands in ${industry} for '${dimension}'. Return ONLY comma-separated list.` }
+                ]
+              })
+            });
+
+            if (!response.ok) {
+              const errPayload = { model, dimension, rank: "Error", raw: `HTTP ${response.status}` };
+              await send("result", errPayload);
+              return;
+            }
+
+            const data = await response.json();
+            if (data.error) {
+              const errPayload = { model, dimension, rank: "Error", raw: data.error.message };
+              await send("result", errPayload);
+              return;
+            }
+
+            const content = data.choices[0].message.content;
+            const rankList = content.split(",").map(x => x.trim());
+            
+            let rankIndex = findRank(rankList, company);
+
+            // Circuit Breaker / Entity Resolution
+            if (rankIndex === -1 && budget.count < budget.limit) {
+               budget.count++;
+               const aiMatchIndex = await resolveEntityWithAI(apiKey, rankList, company);
+               if (aiMatchIndex !== -1) rankIndex = aiMatchIndex;
+            }
+
+            const rankStr = rankIndex !== -1 ? `#${rankIndex}` : "Not in Top 5";
+
+            // Update Transcript for Phase 3
+            analysisTranscript += `Model: ${model} | Dim: ${dimension} | Rank: ${rankStr} | List: [${content}]\n`;
+
+            // STREAMING MOMENT 2: Send this specific result immediately
+            await send("result", {
+                model,
+                dimension,
+                rank: rankStr,
+                raw: content
+            });
+
+          } catch (err) {
+            await send("result", { model, dimension, rank: "Error", raw: err.message });
           }
-
-          const data = await response.json();
-          if (data.error) {
-             finalOutput.modelResults[model][dimension] = { rank: "Error", raw: data.error.message };
-             return;
-          }
-
-          const content = data.choices[0].message.content;
-          const rankList = content.split(",").map(x => x.trim());
-          
-          let rankIndex = findRank(rankList, company);
-
-          if (rankIndex === -1) {
-             if (budget.count < budget.limit) {
-                 budget.count++; 
-                 const aiMatchIndex = await resolveEntityWithAI(apiKey, rankList, company);
-                 if (aiMatchIndex !== -1) rankIndex = aiMatchIndex;
-             }
-          }
-
-          const rankStr = rankIndex !== -1 ? `#${rankIndex}` : "Not in Top 5";
-
-          finalOutput.modelResults[model][dimension] = { rank: rankStr, raw: content };
-          analysisTranscript += `Model: ${model} | Dim: ${dimension} | Rank: ${rankStr} | List: [${content}]\n`;
-
-        } catch (err) {
-          finalOutput.modelResults[model][dimension] = { rank: "Error", raw: err.message };
-        }
+        }));
       }));
-    }));
 
-    // PHASE 3: AI Consensus Summary (UPDATED PROMPT)
-    try {
-        budget.count++; 
+      // ===========================
+      // PHASE 3: Summary
+      // ===========================
+      try {
+        budget.count++;
         const summaryResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -119,8 +160,7 @@ async function handleRanking(request, env) {
                 messages: [
                     { 
                         role: "system", 
-                        // REVISED PROMPT BELOW:
-                        content: "You are a Senior Market Analyst. Write a professional, concise executive summary paragraph based on the provided data. Do not mention word counts or metadata. 1) Highlight the company's strongest and weakest dimensions. 2) Identify the most frequent competitors. 3) Provide a final strategic verdict on their market position." 
+                        content: "You are a Senior Market Analyst. Write a professional, concise executive summary paragraph based on the provided data. Do not mention word counts or metadata. 1) Highlight the company's strongest and weakest dimensions. 2) Identify the most frequent competitors. 3) Provide a final strategic verdict." 
                     },
                     { role: "user", content: analysisTranscript }
                 ]
@@ -129,20 +169,34 @@ async function handleRanking(request, env) {
 
         if (summaryResponse.ok) {
             const summaryData = await summaryResponse.json();
-            finalOutput.summary = summaryData.choices[0].message.content;
+            // STREAMING MOMENT 3: Send summary
+            await send("summary", summaryData.choices[0].message.content);
         } else {
-            finalOutput.summary = "Summary unavailable (API Error).";
+            await send("summary", "Summary unavailable (API Error).");
         }
-    } catch (e) {
-        finalOutput.summary = "Summary unavailable.";
-    }
+      } catch (e) {
+        await send("summary", "Summary unavailable.");
+      }
 
-    return new Response(JSON.stringify(finalOutput), { headers: { "Content-Type": "application/json" } });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: `Server Error: ${e.message}` }), { status: 500 });
-  }
+      await writer.close();
+
+    } catch (err) {
+      await send("error", `Stream Error: ${err.message}`);
+      await writer.close();
+    }
+  })();
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive"
+    }
+  });
 }
 
+// Keep helper functions (findRank, levenshtein, resolveEntityWithAI) exactly as they were
+// ... [Use the same helper functions from the previous step] ...
 async function resolveEntityWithAI(apiKey, list, target) {
     try {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {

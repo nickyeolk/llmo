@@ -5,84 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLMO Ranker</title>
     <style>
+        /* [Previous styles remain the same] */
         body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 4rem auto; padding: 0 1rem; background: #f4f4f5; color: #18181b; }
         .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e4e4e7;}
-        
         h1 { margin-top: 0; margin-bottom: 0.75rem; font-size: 2rem; }
-        
-        /* Updated Subtitle/Intro Styling */
-        .intro-text { 
-            color: #52525b; 
-            margin-bottom: 2rem; 
-            margin-top: 0; 
-            line-height: 1.6;
-            font-size: 1.05rem;
-            max-width: 650px;
-        }
-
+        .intro-text { color: #52525b; margin-bottom: 2rem; margin-top: 0; line-height: 1.6; font-size: 1.05rem; max-width: 650px; }
         .input-row { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 2rem; }
         .input-group { flex: 1; }
-
         label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #3f3f46; font-size: 0.9rem;}
         input { width: 100%; padding: 0.75rem; border: 1px solid #d4d4d8; border-radius: 6px; box-sizing: border-box; font-size: 1rem;}
-        
-        button { 
-            padding: 0.75rem 1.5rem; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; height: 46px; white-space: nowrap;
-        }
+        button { padding: 0.75rem 1.5rem; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; height: 46px; white-space: nowrap; }
         button:hover { background: #1d4ed8; }
         button:disabled { background: #93c5fd; cursor: not-allowed; }
-        
         #results { margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
-        
-        /* Consensus Box */
-        .consensus-box {
-            background: #18181b; 
-            color: #f4f4f5;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            border: 1px solid #27272a;
-        }
-        .consensus-title {
-            font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #a1a1aa; margin-bottom: 0.5rem; font-weight: 700;
-        }
-        .consensus-text {
-            font-size: 1.05rem; line-height: 1.6; font-family: Georgia, 'Times New Roman', Times, serif; 
-        }
-
-        /* Model Blocks */
+        .consensus-box { background: #18181b; color: #f4f4f5; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #27272a; display: none; } /* Hidden by default */
+        .consensus-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #a1a1aa; margin-bottom: 0.5rem; font-weight: 700; }
+        .consensus-text { font-size: 1.05rem; line-height: 1.6; font-family: Georgia, 'Times New Roman', Times, serif; }
         .model-details { background: white; border: 2px solid #e4e4e7; border-radius: 8px; overflow: hidden; }
-        
-        .model-summary { 
-            background: #fafafa; padding: 1rem; font-weight: 700; font-size: 1.1rem;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-
+        .model-summary { background: #fafafa; padding: 1rem; font-weight: 700; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
         .model-header-content { display: flex; align-items: center; justify-content: space-between; width: 100%; padding-right: 1rem; }
         .overall-score { font-size: 0.9rem; background: #18181b; color: white; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 600; }
-        
         .dimensions-container { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; background: #fff;}
         .dim-details { border: 1px solid #e4e4e7; border-radius: 6px; }
         .dim-summary { padding: 0.75rem; font-size: 0.95rem; color: #3f3f46; background: #f8fafc;}
         .dim-summary:hover { background: #f1f5f9; }
-
         summary { display: flex; cursor: pointer; list-style: none; }
         summary::after { content: "▼"; font-size: 0.8rem; color: #a1a1aa; transition: transform 0.2s; margin-left: 10px;}
         details[open] summary::after { transform: rotate(180deg); }
-
         .raw-text { padding: 1rem; background: #f1f5f9; border-top: 1px solid #e4e4e7; font-size: 0.9rem; color: #475569; font-family: monospace; white-space: pre-wrap; }
-
         .rank-badge { background: #e0f2fe; color: #0369a1; padding: 0.25rem 0.75rem; border-radius: 999px; font-weight: 700; font-size: 0.875rem; }
         .rank-badge.not-found { background: #f3f4f6; color: #64748b; font-weight: 500;}
         .rank-badge.error { background: #fee2e2; color: #991b1b; }
-        
+        /* Loading Spinner for Badges */
+        .spinner { width: 16px; height: 16px; border: 2px solid #cbd5e1; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @media (max-width: 600px) { .input-row { flex-direction: column; align-items: stretch; gap: 1rem;} }
     </style>
 </head>
 <body>
     <div class="card">
         <h1>🏆 LLMO Ranker</h1>
-        
         <p class="intro-text">
             As traditional SEO gives way to LLM Optimization, understanding how AI perceives your brand is critical. 
             This tool pokes a wire into the "brain" of top models to tease out their implicit tendencies and rankings.
@@ -99,17 +61,24 @@
                 <input type="text" id="industry" placeholder="Outdoor Apparel">
             </div>
             
-            <button onclick="getRankings()" id="btn">Analyze</button>
+            <button onclick="runAnalysis()" id="btn">Analyze</button>
         </div>
         
         <div id="results"></div>
     </div>
 
     <script>
-        async function getRankings() {
+        const models = [
+            "openai/gpt-5-nano", "anthropic/claude-haiku-4.5", "meta-llama/llama-4-scout",
+            "mistralai/ministral-3b-2512", "deepseek/deepseek-v3.2", "x-ai/grok-4.1-fast"
+        ];
+
+        // Global store for dynamic scoring updates
+        let modelScores = {}; 
+
+        async function runAnalysis() {
             const btn = document.getElementById('btn');
             const resDiv = document.getElementById('results');
-            
             const compInput = document.getElementById('company');
             const indInput = document.getElementById('industry');
             const company = compInput.value.trim() || compInput.getAttribute('placeholder');
@@ -120,17 +89,8 @@
 
             btn.innerText = "Analyzing...";
             btn.disabled = true;
-            
-            // UPDATED LOADING STATE
-            resDiv.innerHTML = `
-                <div style='text-align:center; color:#666; padding: 2rem;'>
-                    <p><strong>Phase 1:</strong> Identifying 5 key ${industry} dimensions...</p>
-                    <p><strong>Phase 2:</strong> Scanning 6 AI models (30 concurrent queries)...</p>
-                    <p><strong>Phase 3:</strong> Synthesizing Consensus Analysis...</p>
-                    <div style="margin-top:1rem; height:4px; background:#e4e4e7; border-radius:2px; overflow:hidden;">
-                        <div style="height:100%; background:#2563eb; width:50%; animation: load 2.5s infinite;"></div>
-                    </div>
-                </div>`;
+            resDiv.innerHTML = "<div style='text-align:center; color:#666; margin-top:2rem;'>Connecting to Analysis Stream...</div>";
+            modelScores = {}; // Reset scores
 
             try {
                 const response = await fetch('/api/rank', {
@@ -138,93 +98,156 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ company, industry })
                 });
-                
-                const data = await response.json();
-                if (data.error) throw new Error(data.error);
-                
-                let html = "";
-                
-                if (data.summary) {
-                    html += `
-                        <div class="consensus-box">
-                            <div class="consensus-title">🤖 AI Consensus Report</div>
-                            <div class="consensus-text">${data.summary}</div>
-                        </div>
-                    `;
-                }
 
-                const dimensionsList = data.dimensions;
-                const modelResults = data.modelResults;
+                // Set up Stream Reader
+                const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+                let buffer = "";
 
-                for (const [modelName, dimensionResults] of Object.entries(modelResults)) {
-                    const shortModelName = modelName.split('/')[1] || modelName;
+                // Placeholder for when we know dimensions but before results come in
+                let dimensionsKnown = false;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
                     
-                    let dimensionsHtml = "";
-                    let totalRankScore = 0;
-                    let validRankCount = 0;
+                    buffer += value;
+                    const lines = buffer.split("\n\n");
+                    buffer = lines.pop(); // Keep partial line in buffer
 
-                    dimensionsList.forEach(dim => {
-                        const result = dimensionResults[dim] || { rank: "Error", raw: "Failed" };
-                        let badgeClass = "rank-badge";
-                        let rankVal = 6; 
-
-                        if (result.rank.includes("Error")) {
-                            badgeClass += " error";
-                            rankVal = null;
-                        } else if (result.rank.startsWith("#")) {
-                            rankVal = parseInt(result.rank.substring(1));
-                        } else {
-                            badgeClass += " not-found";
-                            rankVal = 6; 
+                    for (const line of lines) {
+                        if (line.startsWith("event: ")) {
+                            // Simple parsing of "event: type\ndata: json"
+                            const parts = line.split("\n");
+                            const eventType = parts[0].replace("event: ", "").trim();
+                            const dataStr = parts[1].replace("data: ", "").trim();
+                            
+                            try {
+                                const data = JSON.parse(dataStr);
+                                handleStreamEvent(eventType, data, resDiv);
+                            } catch(e) { console.error("Parse error", e); }
                         }
-
-                        if (rankVal !== null) {
-                            totalRankScore += rankVal;
-                            validRankCount++;
-                        }
-                        
-                        dimensionsHtml += `
-                            <details class="dim-details">
-                                <summary class="dim-summary">
-                                    <span>${dim}</span>
-                                    <span class="${badgeClass}">${result.rank}</span>
-                                </summary>
-                                <div class="raw-text"><strong>Raw AI Output:</strong><br>${result.raw}</div>
-                            </details>
-                        `;
-                    });
-
-                    let overallText = "N/A";
-                    if (validRankCount > 0) {
-                        const avg = (totalRankScore / validRankCount).toFixed(1);
-                        overallText = `Avg Rank: ${avg}`;
                     }
-
-                    html += `
-                        <details class="model-details" open>
-                            <summary class="model-summary">
-                                <div class="model-header-content">
-                                    <span>${shortModelName}</span>
-                                    <span class="overall-score">${overallText}</span>
-                                </div>
-                            </summary>
-                            <div class="dimensions-container">
-                                ${dimensionsHtml}
-                            </div>
-                        </details>`;
                 }
-                resDiv.innerHTML = html;
-
             } catch (e) {
-                resDiv.innerHTML = `<div style="padding:2rem; text-align:center; color:#ef4444; background:#fef2f2; border-radius:8px;"><strong>Error:</strong> ${e.message}</div>`;
+                resDiv.innerHTML += `<div style="color:red; margin-top:1rem;">Stream Error: ${e.message}</div>`;
             } finally {
                 btn.innerText = "Analyze";
                 btn.disabled = false;
             }
         }
+
+        function handleStreamEvent(type, data, container) {
+            if (type === "error") {
+                container.innerHTML = `<div style="color:red; padding:1rem; border:1px solid red; border-radius:8px;">Error: ${data}</div>`;
+            } 
+            else if (type === "dimensions") {
+                // PHASE 1 DONE: Draw the Skeleton Grid
+                renderSkeleton(data, container);
+            } 
+            else if (type === "result") {
+                // PHASE 2 UPDATE: Fill in a specific cell
+                updateResultCell(data);
+            } 
+            else if (type === "summary") {
+                // PHASE 3 DONE: Show Summary
+                const summaryBox = document.getElementById("summary-box");
+                const summaryContent = document.getElementById("summary-content");
+                summaryContent.innerText = data;
+                summaryBox.style.display = "block";
+                
+                // Move summary to top visually (it is already structurally at top)
+                summaryBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function renderSkeleton(dimensions, container) {
+            // Create the HTML structure immediately
+            let html = `
+                <div id="summary-box" class="consensus-box">
+                    <div class="consensus-title">🤖 AI Consensus Report</div>
+                    <div id="summary-content" class="consensus-text">Generating summary...</div>
+                </div>
+            `;
+
+            models.forEach(model => {
+                const shortName = model.split('/')[1];
+                // Initialize score tracker
+                modelScores[model] = { total: 0, count: 0 };
+                
+                let dimsHtml = "";
+                dimensions.forEach(dim => {
+                    // Unique ID for each cell so we can update it later
+                    const cellId = `cell-${model}-${dim.replace(/\s+/g, '')}`;
+                    dimsHtml += `
+                        <details class="dim-details">
+                            <summary class="dim-summary">
+                                <span>${dim}</span>
+                                <span id="${cellId}" class="rank-badge" style="background:#f1f5f9; color:#64748b;">
+                                    <span class="spinner"></span>
+                                </span>
+                            </summary>
+                            <div class="raw-text" id="${cellId}-raw">Waiting for data...</div>
+                        </details>
+                    `;
+                });
+
+                html += `
+                    <details class="model-details" open>
+                        <summary class="model-summary">
+                            <div class="model-header-content">
+                                <span>${shortName}</span>
+                                <span id="score-${model}" class="overall-score">...</span>
+                            </div>
+                        </summary>
+                        <div class="dimensions-container">${dimsHtml}</div>
+                    </details>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function updateResultCell(data) {
+            const { model, dimension, rank, raw } = data;
+            const cellId = `cell-${model}-${dimension.replace(/\s+/g, '')}`;
+            
+            // Update Badge
+            const badgeEl = document.getElementById(cellId);
+            const rawEl = document.getElementById(`${cellId}-raw`);
+            
+            if (badgeEl && rawEl) {
+                // Style based on rank
+                let badgeClass = "rank-badge";
+                let rankVal = 6;
+
+                if (rank.includes("Error")) {
+                    badgeClass += " error";
+                    rankVal = null;
+                } else if (rank.startsWith("#")) {
+                    rankVal = parseInt(rank.substring(1));
+                } else {
+                    badgeClass += " not-found";
+                }
+
+                badgeEl.className = badgeClass;
+                badgeEl.innerHTML = rank; // Replace spinner with text
+                badgeEl.style.background = ""; // Remove skeleton gray
+                badgeEl.style.color = "";
+
+                // Update Raw Text
+                rawEl.innerText = raw;
+
+                // Update Running Average
+                if (rankVal !== null) {
+                    const scoreData = modelScores[model];
+                    scoreData.total += rankVal;
+                    scoreData.count++;
+                    
+                    const avg = (scoreData.total / scoreData.count).toFixed(1);
+                    const scoreEl = document.getElementById(`score-${model}`);
+                    if (scoreEl) scoreEl.innerText = `Avg Rank: ${avg}`;
+                }
+            }
+        }
     </script>
-    <style>
-        @keyframes load { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
-    </style>
 </body>
 </html>
