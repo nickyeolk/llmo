@@ -10,6 +10,7 @@
         .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e4e4e7;}
         h1 { margin-top: 0; margin-bottom: 0.75rem; font-size: 2rem; }
         .intro-text { color: #52525b; margin-bottom: 2rem; margin-top: 0; line-height: 1.6; font-size: 1.05rem; max-width: 650px; }
+        
         .input-row { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 2rem; }
         .input-group { flex: 1; }
         label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #3f3f46; font-size: 0.9rem;}
@@ -17,45 +18,62 @@
         button { padding: 0.75rem 1.5rem; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: background 0.2s; height: 46px; white-space: nowrap; }
         button:hover { background: #1d4ed8; }
         button:disabled { background: #93c5fd; cursor: not-allowed; }
+        
         #results { margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
         
-        /* CONSENSUS BOX STYLES */
-        .consensus-box { 
-            background: #18181b; 
-            color: #f4f4f5; 
-            padding: 1.5rem; 
-            border-radius: 8px; 
-            margin-bottom: 1rem; 
-            border: 1px solid #27272a; 
-            /* Removed display:none so it can show immediately */
+        /* --- NEW: HERO SCORE CARD --- */
+        .score-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            display: none; /* Hidden until summary arrives */
         }
-        .consensus-title { 
-            font-size: 0.85rem; 
-            text-transform: uppercase; 
-            letter-spacing: 0.05em; 
-            color: #a1a1aa; 
-            margin-bottom: 0.5rem; 
-            font-weight: 700; 
+        .score-left { flex: 1; padding-right: 2rem; }
+        .score-title { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.85rem; color: #94a3b8; font-weight: 700; margin-bottom: 0.5rem; }
+        .score-desc { font-size: 1.1rem; line-height: 1.5; color: #e2e8f0; }
+        
+        /* The Big Number Circle */
+        .score-circle-container { position: relative; width: 100px; height: 100px; flex-shrink: 0; }
+        .score-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+        .score-circle-bg { fill: none; stroke: #334155; stroke-width: 8; }
+        .score-circle-fg { 
+            fill: none; 
+            stroke: #3b82f6; 
+            stroke-width: 8; 
+            stroke-dasharray: 251; /* 2 * PI * 40 */
+            stroke-dashoffset: 251; /* Start empty */
+            transition: stroke-dashoffset 1.5s ease-out, stroke 0.3s;
         }
-        .consensus-text { 
-            font-size: 1.05rem; 
-            line-height: 1.6; 
-            font-family: Georgia, 'Times New Roman', Times, serif; 
+        .score-number {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem; font-weight: 800;
         }
-        /* Markdown specific styles inside the dark box */
+        /* --------------------------- */
+
+        .consensus-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; }
+        .consensus-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 0.5rem; font-weight: 700; }
+        .consensus-text { font-size: 1.05rem; line-height: 1.6; color: #334155; }
         .consensus-text p { margin-top: 0; }
-        .consensus-text ul { padding-left: 1.2rem; color: #d4d4d8; }
-        .consensus-text li { margin-bottom: 0.25rem; }
-        .consensus-text strong { color: #fff; font-weight: 600; }
+        .consensus-text strong { color: #0f172a; }
 
         .model-details { background: white; border: 2px solid #e4e4e7; border-radius: 8px; overflow: hidden; }
         .model-summary { background: #fafafa; padding: 1rem; font-weight: 700; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
         .model-header-content { display: flex; align-items: center; justify-content: space-between; width: 100%; padding-right: 1rem; }
         .overall-score { font-size: 0.9rem; background: #18181b; color: white; padding: 0.35rem 0.75rem; border-radius: 6px; font-weight: 600; }
+        
         .dimensions-container { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; background: #fff;}
         .dim-details { border: 1px solid #e4e4e7; border-radius: 6px; }
         .dim-summary { padding: 0.75rem; font-size: 0.95rem; color: #3f3f46; background: #f8fafc;}
         .dim-summary:hover { background: #f1f5f9; }
+        
         summary { display: flex; cursor: pointer; list-style: none; }
         summary::after { content: "▼"; font-size: 0.8rem; color: #a1a1aa; transition: transform 0.2s; margin-left: 10px;}
         details[open] summary::after { transform: rotate(180deg); }
@@ -66,7 +84,11 @@
         .spinner { width: 16px; height: 16px; border: 2px solid #cbd5e1; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        @media (max-width: 600px) { .input-row { flex-direction: column; align-items: stretch; gap: 1rem;} }
+        @media (max-width: 600px) { 
+            .input-row { flex-direction: column; align-items: stretch; gap: 1rem;} 
+            .score-card { flex-direction: column; text-align: center; gap: 1.5rem; }
+            .score-left { padding-right: 0; }
+        }
     </style>
 </head>
 <body>
@@ -100,7 +122,9 @@
             "mistralai/ministral-3b-2512", "deepseek/deepseek-v3.2", "x-ai/grok-4.1-fast"
         ];
 
-        let modelScores = {}; 
+        let modelScores = {};
+        // Global accumulator for the final score
+        let globalScore = { totalPoints: 0, totalPossible: 0 };
 
         async function runAnalysis() {
             const btn = document.getElementById('btn');
@@ -117,6 +141,7 @@
             btn.disabled = true;
             resDiv.innerHTML = "<div style='text-align:center; color:#666; margin-top:2rem;'>Connecting to Analysis Stream...</div>";
             modelScores = {}; 
+            globalScore = { totalPoints: 0, totalPossible: 0 };
 
             try {
                 const response = await fetch('/api/rank', {
@@ -169,24 +194,76 @@
             } 
             else if (type === "summary") {
                 const summaryContent = document.getElementById("summary-content");
-                // NEW: Use 'marked.parse' to convert markdown to HTML
                 summaryContent.innerHTML = marked.parse(data);
                 
-                // Add a nice fade-in effect to show it's done
-                summaryContent.style.opacity = 0;
-                summaryContent.style.transition = "opacity 0.5s";
-                requestAnimationFrame(() => summaryContent.style.opacity = 1);
+                // Show Summary Box
+                document.getElementById("consensus-section").style.display = "block";
+                
+                // Calculate and Show Hero Score
+                calculateAndShowScore();
             }
         }
 
+        function calculateAndShowScore() {
+            const scoreCard = document.getElementById("score-card");
+            const scoreCircle = document.getElementById("score-fg");
+            const scoreNum = document.getElementById("score-number");
+            const scoreDesc = document.getElementById("score-desc");
+
+            // Calculate percentage (avoid divide by zero)
+            const finalPercent = globalScore.totalPossible > 0 
+                ? Math.round((globalScore.totalPoints / globalScore.totalPossible) * 100) 
+                : 0;
+
+            scoreNum.innerText = finalPercent;
+            scoreCard.style.display = "flex";
+            
+            // Interpret Score
+            let verdict = "";
+            let color = "#3b82f6"; // Blue
+            if (finalPercent >= 90) { verdict = "Dominant Market Leader"; color = "#22c55e"; }
+            else if (finalPercent >= 75) { verdict = "Strong Contender"; color = "#3b82f6"; }
+            else if (finalPercent >= 50) { verdict = "Visible Player"; color = "#eab308"; }
+            else { verdict = "Niche / Emerging"; color = "#ef4444"; }
+
+            scoreDesc.innerText = verdict;
+            scoreCircle.style.stroke = color;
+
+            // Animate SVG Circle (Dash offset 251 -> 0 is full)
+            // We want offset = 251 - (251 * percent/100)
+            const offset = 251 - (251 * finalPercent / 100);
+            
+            // Small timeout to allow display:flex to render before animating
+            setTimeout(() => {
+                scoreCircle.style.strokeDashoffset = offset;
+            }, 100);
+            
+            // Scroll to top
+            scoreCard.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+
         function renderSkeleton(dimensions, container) {
-            // NEW: Draw the Consensus Box immediately with a spinner
+            // Updated Skeleton to include Score Card (Hidden) and Consensus
             let html = `
-                <div id="summary-box" class="consensus-box">
+                <div id="score-card" class="score-card">
+                    <div class="score-left">
+                        <div class="score-title">Overall LLMO Score</div>
+                        <div id="score-desc" class="score-desc">Calculating...</div>
+                    </div>
+                    <div class="score-circle-container">
+                        <svg class="score-svg" viewBox="0 0 100 100">
+                            <circle class="score-circle-bg" cx="50" cy="50" r="40"></circle>
+                            <circle id="score-fg" class="score-circle-fg" cx="50" cy="50" r="40"></circle>
+                        </svg>
+                        <div id="score-number" class="score-number">0</div>
+                    </div>
+                </div>
+
+                <div id="consensus-section" class="consensus-box">
                     <div class="consensus-title">🤖 AI Consensus Report</div>
                     <div id="summary-content" class="consensus-text">
-                        <div style="display:flex; align-items:center; gap:0.75rem; color:#a1a1aa;">
-                            <span class="spinner" style="border-color:#52525b; border-top-color:#a1a1aa;"></span>
+                        <div style="display:flex; align-items:center; gap:0.75rem; color:#64748b;">
+                            <span class="spinner" style="border-color:#cbd5e1; border-top-color:#64748b;"></span>
                             <span>Synthesizing multi-model insights...</span>
                         </div>
                     </div>
@@ -237,29 +314,42 @@
             
             if (badgeEl && rawEl) {
                 let badgeClass = "rank-badge";
-                let rankVal = 6;
+                
+                // --- SCORING LOGIC ---
+                // Rank 1 = 100pts, Rank 2 = 80pts, ... Rank 5 = 20pts, Unranked = 0pts
+                let points = 0;
+                let possible = 100;
 
                 if (rank.includes("Error")) {
                     badgeClass += " error";
-                    rankVal = null;
+                    possible = 0; // Don't count errors against total
                 } else if (rank.startsWith("#")) {
-                    rankVal = parseInt(rank.substring(1));
+                    const r = parseInt(rank.substring(1));
+                    points = Math.max(0, 120 - (r * 20)); // Formula: #1->100, #2->80, #5->20
                 } else {
                     badgeClass += " not-found";
+                    points = 0;
                 }
+                
+                // Add to Global Score
+                globalScore.totalPoints += points;
+                globalScore.totalPossible += possible;
+                // ---------------------
 
                 badgeEl.className = badgeClass;
                 badgeEl.innerHTML = rank; 
                 badgeEl.style.background = ""; 
                 badgeEl.style.color = "";
-
                 rawEl.innerText = raw;
 
-                if (rankVal !== null) {
+                // Update individual model average (Visual only)
+                if (possible > 0) {
                     const scoreData = modelScores[model];
+                    // Map points back to rank for display avg (optional, or just keep rank avg)
+                    // Let's keep the existing "Avg Rank" display logic for per-model
+                    let rankVal = rank.startsWith("#") ? parseInt(rank.substring(1)) : 6;
                     scoreData.total += rankVal;
                     scoreData.count++;
-                    
                     const avg = (scoreData.total / scoreData.count).toFixed(1);
                     const scoreEl = document.getElementById(`score-${model}`);
                     if (scoreEl) scoreEl.innerText = `Avg Rank: ${avg}`;
