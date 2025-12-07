@@ -18,11 +18,7 @@ async function handleRanking(request, env) {
     if (!company || !industry) return new Response(JSON.stringify({ error: "Missing inputs" }), { status: 400 });
     if (!apiKey) return new Response(JSON.stringify({ error: "API Key Missing" }), { status: 500 });
 
-    // --- REQUEST BUDGET TRACKER ---
-    // Cloudflare limit is 50. We set a safe internal limit of 45 
-    // to leave room for the Summary call at the end.
     const budget = { count: 0, limit: 45 };
-    // ------------------------------
 
     // PHASE 1: Get Dimensions
     budget.count++; 
@@ -35,7 +31,7 @@ async function handleRanking(request, env) {
             model: "meta-llama/llama-3.2-3b-instruct",
             messages: [
               { role: "system", content: "You are a helpful assistant. Return only a comma-separated list." },
-              { role: "user", content: `List exactly 5 key marketing dimensions critical for brand success in the ${industry} industry. Return ONLY a comma-separated list.` }
+              { role: "user", content: `List exactly 5 key marketing dimensions critical for brand success in the ${industry} industry. Return ONLY a comma-separated list of 5 short phrases.` }
             ]
           })
       });
@@ -63,9 +59,7 @@ async function handleRanking(request, env) {
       finalOutput.modelResults[model] = {};
       
       await Promise.all(dimensions.map(async (dimension) => {
-        // Increment budget for the main query
         budget.count++; 
-        
         try {
           const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
@@ -95,20 +89,13 @@ async function handleRanking(request, env) {
           
           let rankIndex = findRank(rankList, company);
 
-          // --- CIRCUIT BREAKER LOGIC ---
-          // Only trigger the AI Fallback if we have budget left.
           if (rankIndex === -1) {
              if (budget.count < budget.limit) {
-                 // We have budget, go ahead and call the resolver
                  budget.count++; 
                  const aiMatchIndex = await resolveEntityWithAI(apiKey, rankList, company);
                  if (aiMatchIndex !== -1) rankIndex = aiMatchIndex;
-             } else {
-                 // No budget left, skip the AI check to save the worker from crashing
-                 console.log("Skipping Entity Resolution: Budget exceeded");
              }
           }
-          // -----------------------------
 
           const rankStr = rankIndex !== -1 ? `#${rankIndex}` : "Not in Top 5";
 
@@ -121,16 +108,20 @@ async function handleRanking(request, env) {
       }));
     }));
 
-    // PHASE 3: AI Consensus Summary
+    // PHASE 3: AI Consensus Summary (UPDATED PROMPT)
     try {
-        budget.count++; // Final call
+        budget.count++; 
         const summaryResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
                 model: "x-ai/grok-4.1-fast",
                 messages: [
-                    { role: "system", content: "Summarize this data into a professional 80-word paragraph. Identify competitors and verdict." },
+                    { 
+                        role: "system", 
+                        // REVISED PROMPT BELOW:
+                        content: "You are a Senior Market Analyst. Write a professional, concise executive summary paragraph based on the provided data. Do not mention word counts or metadata. 1) Highlight the company's strongest and weakest dimensions. 2) Identify the most frequent competitors. 3) Provide a final strategic verdict on their market position." 
+                    },
                     { role: "user", content: analysisTranscript }
                 ]
             })
